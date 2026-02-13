@@ -1,19 +1,14 @@
-var proxy = 'SOCKS5 192.168.0.2:7893; SOCKS 192.168.0.2:7893; DIRECT;';
-var rules = [
-    [
-        [],
-        []
-    ],
-    [
-        [
-            "clientservices.googleapis.com",
-            "fonts.googleapis.com",
-            "gvt1.com",
-            "safebrowsing.googleapis.com",
-            "update.googleapis.com"
-        ],
-        [
-            "000webhost.com",
+// 自定义PAC文件 - 国外手机常用服务走代理（*.域名匹配），其他直连
+function FindProxyForURL(url, host) {
+    // ===================== 配置区 =====================
+    // 已替换为你指定的代理地址和端口
+    var proxyServer = "PROXY 192.168.0.2:7893";
+    // 直连策略
+    var directConnection = "DIRECT";
+    
+    // 国外常用手机网站/服务域名列表（*.域名 形式匹配）
+    var foreignDomains = [
+          "000webhost.com",
             "0rz.tw",
             "1-apple.com.tw",
             "1000giri.net",
@@ -2252,8 +2247,6 @@ var rules = [
             "mgoon.com",
             "mgstage.com",
             "mh4u.org",
-            "mi.com",
-            "microsoft.com",
             "microvpn.com",
             "mihua.org",
             "mij.rip",
@@ -4100,41 +4093,25 @@ var rules = [
             "zynamics.com",
             "zyxel.com",
             "zzcloud.me"
-        ]
-    ]
-];
+    ];
+    // ==================================================
 
-var lastRule = '';
-
-function FindProxyForURL(url, host) {
-    for (var i = 0; i < rules.length; i++) {
-        ret = testHost(host, i);
-        if (ret != undefined)
-            return ret;
+    // 辅助函数：按 *.域名 形式匹配（兼容子域名）
+    function isMatchWildcardDomain(host, targetDomain) {
+        // 等效于 *.targetDomain 的匹配逻辑：
+        // 1. 完全匹配域名（如 whatsapp.com）
+        // 2. 以 .targetDomain 结尾（如 api.whatsapp.com、www.whatsapp.com）
+        return dnsDomainIs(host, targetDomain) || 
+               shExpMatch(host, "*." + targetDomain);
     }
-    return 'DIRECT';
-}
 
-function testHost(host, index) {
-    for (var i = 0; i < rules[index].length; i++) {
-        for (var j = 0; j < rules[index][i].length; j++) {
-            lastRule = rules[index][i][j]
-            if (host == lastRule || host.endsWith('.' + lastRule))
-                return i % 2 == 0 ? 'DIRECT' : proxy;
+    // 遍历域名列表，判断是否需要走代理
+    for (var i = 0; i < foreignDomains.length; i++) {
+        if (isMatchWildcardDomain(host, foreignDomains[i])) {
+            return proxyServer; // 匹配到则走代理
         }
     }
-    lastRule = '';
-}
 
-// REF: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/endsWith
-if (!String.prototype.endsWith) {
-    String.prototype.endsWith = function(searchString, position) {
-        var subjectString = this.toString();
-        if (typeof position !== 'number' || !isFinite(position) || Math.floor(position) !== position || position > subjectString.length) {
-            position = subjectString.length;
-        }
-        position -= searchString.length;
-        var lastIndex = subjectString.indexOf(searchString, position);
-        return lastIndex !== -1 && lastIndex === position;
-  };
+    // 所有未匹配的域名，直接连接
+    return directConnection;
 }
